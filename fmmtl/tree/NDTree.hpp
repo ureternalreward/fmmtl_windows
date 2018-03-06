@@ -159,7 +159,7 @@ private:
       FMMTL_ASSERT(idx_ < tree_->size());
     }
     friend class NDTree;
-    friend class body_iterator;
+    friend  body_iterator;
   };
 
   // A tree-aligned box

@@ -15,13 +15,19 @@
 
 
 #include "Util/SphericalMultipole3D.hpp"
+namespace fmmtl{
 
-
+//template <int P=5>
 class LaplaceSpherical
   : public fmmtl::Expansion<LaplaceKernel, LaplaceSpherical> {
 public:
   typedef double real_type;
   typedef std::complex<real_type> complex_type;
+
+  /*using source_type = LaplaceKernel::source_type;
+  using charge_type = LaplaceKernel::charge_type;
+  using result_type = LaplaceKernel::result_type;
+  using target_type = LaplaceKernel::target_type;*/
 
   //! Point type
   typedef Vec<3, real_type> point_type;
@@ -35,12 +41,14 @@ public:
   typedef SphericalMultipole3D<point_type, multipole_type, local_type> SphOp;
 
   //! Expansion order
-  int P;
+  const int P;
 
   //! Constructor
-  LaplaceSpherical(int _P = 5)
-    : P(_P) {
+  LaplaceSpherical(int _P )
+   :P(_P) {
   }
+
+  LaplaceSpherical() : P(6) {};
 
   /** Initialize a multipole expansion with the size of a box at this level */
   void init_multipole(multipole_type& M, const point_type&, unsigned) const {
@@ -59,8 +67,10 @@ public:
    * @param[in] center The center of the box containing the multipole expansion
    * @param[in,out] M The multipole expansion to accumulate into
    */
-  void S2M(const source_type& source, const charge_type& charge,
-           const point_type& center, multipole_type& M) const {
+   void S2M (const source_type& source, 
+           const charge_type& charge,
+           const point_type& center, 
+           multipole_type& M) const {
     return SphOp::S2M(P, center - source, charge, M);
   }
 
@@ -125,6 +135,7 @@ public:
     SphOp::cart2sph(rho, theta, phi, target - center);
     complex_type *Z=new complex_type[P*(P+1)/2];
     complex_type *dZ = new complex_type[P*(P + 1) / 2];
+    //complex_type Z[P*(P + 1) / 2], dZ[P*(P + 1) / 2];
     SphOp::evalZ(rho, theta, phi, P, Z, dZ);
 
     point_type sph = point_type();
@@ -149,5 +160,9 @@ public:
     result[1] += cart[0];
     result[2] += cart[1];
     result[3] += cart[2];
+    delete[] Z;
+    delete[] dZ;
   }
 };
+
+}

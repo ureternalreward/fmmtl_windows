@@ -9,12 +9,12 @@
 #include "fmmtl/numeric/random.hpp"
 
 
-#include "LaplaceCartesian.hpp"
+//#include "LaplaceCartesian.hpp"
 
 
 int main(int argc, char **argv)
 {
-  int N = 1000;
+  int N = 10000;
   bool checkErrors = true;
 
   // Parse custom command line args
@@ -30,8 +30,8 @@ int main(int argc, char **argv)
   FMMOptions opts = get_options(argc, argv);
 
   // Init kernel
-  typedef LaplaceSpherical kernel_type;
-  kernel_type K(9);
+  typedef fmmtl::LaplaceSpherical kernel_type;
+  kernel_type K;
   //typedef LaplaceCartesian<5> kernel_type;
   //kernel_type K;
 

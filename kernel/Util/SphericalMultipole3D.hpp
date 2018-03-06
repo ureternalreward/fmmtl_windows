@@ -211,6 +211,8 @@ struct SphericalMultipole3D {
 
 
   /** Spherical to cartesian coordinates */
+  //input : vector s(d/dr, d/dtheta, d/dphi) in spherical
+  //output: vector in cartesian
   inline static
   point_type sph2cart(real_type rho, real_type theta, real_type phi,
                       const point_type& s) {
@@ -226,6 +228,9 @@ struct SphericalMultipole3D {
   }
 
   /** Cartesian to spherical coordinates */
+  //x=r sin\theta cos\phi
+  //y=r sin\theta sin\phi
+  //z=r cos\theta
   inline static
   void cart2sph(real_type& r, real_type& theta, real_type& phi,
                 const point_type& x) {
