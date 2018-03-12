@@ -139,14 +139,18 @@ public:
     SphOp::evalZ(rho, theta, phi, P, Z, dZ);
 
     point_type sph = point_type();
+    //sph: gradient of the potential, along r, theta, phi direction.
+    //r, theta, phi is defined relatively to the center of the expansion
     int nm = 0;
     for (int n = 0; n != P; ++n) {
+      //m=0, base function Y_n^0 is symmetric around \phi axis, no derivative around phi
       const real_type LZ = real(L[nm])*real(Z[nm]) - imag(L[nm])*imag(Z[nm]);
       result[0] += LZ;
       sph[0] += LZ / rho * n;
       sph[1] += real(L[nm])*real(dZ[nm]) - imag(L[nm])*imag(dZ[nm]);
 
       ++nm;
+      //m=1->n
       for (int m = 1; m <= n; ++m, ++nm) {
         const complex_type LZ = L[nm] * Z[nm];
         result[0] += 2 * real(LZ);
