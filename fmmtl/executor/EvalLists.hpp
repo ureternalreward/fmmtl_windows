@@ -83,7 +83,11 @@ class EvalLists
 
   void execute(Context& c) {
     // Launch the p2p early (potentially asynchronously?)
+    Clock t1;
     near_batch_.execute(c);
+    double time1 = t1.seconds();
+    std::cout << "near_batch in " << time1 << " secs" << std::endl;
+    
 
     // Initialize all the multipoles and locals (not all may be needed)
     for (auto&& sbox : boxes(c.source_tree()))
@@ -91,22 +95,31 @@ class EvalLists
     for (auto&& tbox : boxes(c.target_tree()))
       INITL::eval(c, tbox);
 
+    Clock t2;
     // Perform the upward pass (not all may be needed)
     // TODO: Use far_field batch to only initialize and compute used multipoles
     if (ExpansionTraits<typename Context::expansion_type>::has_S2M) {
       UpDispatch up(c);
       UpwardPass::eval(c.source_tree(), up);
     }
+    double time2 = t2.seconds();
+    std::cout << "upwardpass in " << time2 << " secs" << std::endl;
 
+    Clock t3;
     // Perform the source-target box interactions
     far_batch_.execute(c);
+    double time3 = t3.seconds();
+    std::cout << "far_batch in " << time3 << " secs" << std::endl;
 
+    Clock t4;
     // Perform the downward pass (not all may be needed)
     // TODO: Use far_field batch to only initialize and compute used locals
     if (ExpansionTraits<typename Context::expansion_type>::has_L2T) {
       DownDispatch down(c);
       DownwardPass::eval(c.target_tree(), down);
     }
+    double time4 = t4.seconds();
+    std::cout << "down pass in " << time4 << " secs" << std::endl;
   }
 };
 

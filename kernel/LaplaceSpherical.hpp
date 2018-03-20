@@ -18,6 +18,7 @@
 namespace fmmtl{
 
 //template <int P=5>
+
 class LaplaceSpherical
   : public fmmtl::Expansion<LaplaceKernel, LaplaceSpherical> {
 public:

@@ -2,37 +2,37 @@
  * @brief Test the kernel and expansions by running an instance
  * of the kernel matrix-vector product and yielding statistics.
  */
-#include "omp.h"
-#include "LaplaceSpherical.hpp"
+#include "fmmtl/config.hpp"
+#include "DipoleFieldSpherical.hpp"
 #include "fmmtl/KernelMatrix.hpp"
 #include "fmmtl/Direct.hpp"
 #include "fmmtl/util/Clock.hpp"
 #include "fmmtl/numeric/random.hpp"
 
 
-//#include "LaplaceCartesian.hpp"
+ //#include "LaplaceCartesian.hpp"
 
 
 int main(int argc, char **argv)
 {
   omp_set_num_threads(24);
+
   int N = 100000;
   bool checkErrors = true;
 
   // Parse custom command line args
   for (int i = 1; i < argc; ++i) {
-    if (strcmp(argv[i],"-N") == 0) {
+    if (strcmp(argv[i], "-N") == 0) {
       N = atoi(argv[++i]);
-    } else if (strcmp(argv[i],"-nocheck") == 0) {
+    }
+    else if (strcmp(argv[i], "-nocheck") == 0) {
       checkErrors = false;
     }
   }
 
-  // Init the FMM Kernel and options
-  FMMOptions opts = get_options(argc, argv);
-
+  
   // Init kernel
-  typedef fmmtl::LaplaceSpherical kernel_type;
+  typedef fmmtl::DipoleFieldSpherical kernel_type;
   kernel_type K(6);
   //typedef LaplaceCartesian<5> kernel_type;
   //kernel_type K;
@@ -44,11 +44,15 @@ int main(int argc, char **argv)
 
   // Init points and charges
   std::vector<source_type> points = fmmtl::random_n(N);
-
   std::vector<charge_type> charges = fmmtl::random_n(N);
 
   // Build the FMM
   fmmtl::kernel_matrix<kernel_type> A{ K,points, points };
+
+  // Init the FMM Kernel and options
+  FMMOptions opts{K.m_h,true};// = get_options(argc, argv);
+  opts.ncrit = 512;
+
   A.set_options(opts);
 
   // Execute the FMM
@@ -84,24 +88,33 @@ int main(int argc, char **argv)
     double tot_norm_sq = 0;
     double tot_ind_rel_err = 0;
     double max_ind_rel_err = 0;
+    double max_ind_err = 0;
+    int max_index=0;
     for (unsigned k = 0; k < result.size(); ++k) {
       // Individual relative error
+      double abs_error = norm_2(exact[k] - result[k]);
+      max_ind_err = std::max(max_ind_err, abs_error);
+      max_index = max_ind_err > abs_error ? max_index : k;
+      //std::cout << "Absolute error at pair "<<k<< ": " << abs_error << std:: endl;
       double rel_error = norm_2(exact[k] - result[k]) / norm_2(exact[k]);
       tot_ind_rel_err += rel_error;
       // Maximum relative error
-      max_ind_rel_err  = std::max(max_ind_rel_err, rel_error);
+      max_ind_rel_err = std::max(max_ind_rel_err, rel_error);
 
       // Total relative error
       tot_error_sq += norm_2_sq(exact[k] - result[k]);
-      tot_norm_sq  += norm_2_sq(exact[k]);
+      tot_norm_sq += norm_2_sq(exact[k]);
     }
-    double tot_rel_err = sqrt(tot_error_sq/tot_norm_sq);
+    double tot_rel_err = sqrt(tot_error_sq / tot_norm_sq);
     std::cout << "Vector  relative error: " << tot_rel_err << std::endl;
 
     double ave_rel_err = tot_ind_rel_err / result.size();
     std::cout << "Average relative error: " << ave_rel_err << std::endl;
 
     std::cout << "Maximum relative error: " << max_ind_rel_err << std::endl;
+    std::cout << "Maximum absolute error: " << max_ind_err << std::endl;
+    std::cout << "Maximum absolute error index : " << max_index << std::endl;
+    return 0;
   }
   return 0;
 }

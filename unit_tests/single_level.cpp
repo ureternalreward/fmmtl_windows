@@ -4,7 +4,8 @@
 #include "fmmtl/Direct.hpp"
 
 //#include "LaplaceSpherical.hpp"
-#include "LaplaceCartesian.hpp"
+#include "DipoleFieldSpherical.hpp"
+//#include "LaplaceCartesian.hpp"
 //#include "YukawaCartesian.hpp"
 //#include "StokesSpherical.hpp"
 
@@ -70,12 +71,78 @@ void single_level_test(const Expansion& K) {
             << "[" << (rfmm - rexact[0]) << "]" << std::endl;
 }
 
+template <typename Expansion>
+void single_level_test_dipole(const Expansion& K) {
+  typedef Expansion expansion_type;
+  typedef typename expansion_type::point_type point_type;
+  typedef typename expansion_type::source_type source_type;
+  typedef typename expansion_type::target_type target_type;
+  typedef typename expansion_type::charge_type charge_type;
+  typedef typename expansion_type::result_type result_type;
+  typedef typename expansion_type::multipole_type multipole_type;
+  typedef typename expansion_type::local_type local_type;
+
+  // init source
+  std::vector<source_type> s(1);
+  s[0] = source_type(0.13547700429678050, 0.83500858999457950, 0.96886777112423139);
+  s.push_back( source_type(0.18838197604718110, 0.99288130191780666, 0.99646132554800870));
+
+  // init charge
+  std::vector<charge_type> c(1);
+  c[0] = charge_type(0.12518276453363444, 0.76375001257217945, 0.49058903962146072);
+  c.push_back(charge_type(0.051216425785216686, 0.036441251587867714, 0.40873116096176038));
+
+  // init target
+  std::vector<target_type> t(1);
+  t[0] = target_type(0.42208768110541323, 0.17386517200048032, 0.30191312687731969);
+
+  // init results vectors for exact, FMM
+  std::vector<result_type> rexact(1);
+  rexact[0] = result_type(0);
+  result_type rm2t = result_type(0);
+  result_type rfmm = result_type(0);
+
+  // test direct
+  fmmtl::direct(K, s, c, t, rexact);
+
+  // setup initial multipole expansion
+  multipole_type M;
+  point_type M_center(0.12514705490142053, 0.91435866100260932, 1.0078375433664779);
+  point_type M_extent(0.2, 0.2, 0.2);
+  INITM::apply(K, M, M_extent, 1u);
+  S2M::apply(K, s[1], c[1], M_center, M);
+  S2M::apply(K, s[0], c[0], M_center, M);
+  
+
+  // test M2T
+  M2T::apply(K, M, M_center, t[0], rm2t);
+
+  // test M2L, L2T
+  local_type L;
+  point_type L_center(0.36587515877708282, 0.19217434937562256, 0.28565323173949125);
+  point_type L_extent(0.2, 0.2, 0.2);
+  auto d = L_center - M_center;
+  printf("DIST: (%lg, %lg, %lg) : %lg\n", d[0], d[1], d[2], norm_2(d));
+  INITL::apply(K, L, L_extent, 1u);
+  M2L::apply(K, M, L, L_center - M_center);
+  L2T::apply(K, L, L_center, t[0], rfmm);
+
+  // check errors
+  std::cout << "rexact = " << rexact[0] << std::endl;
+  std::cout << "rm2t = " << rm2t << "\n    "
+    << "[" << (rm2t - rexact[0]) << "]" << std::endl;
+  std::cout << "rfmm = " << rfmm << "\n    "
+    << "[" << (rfmm - rexact[0]) << "]" << std::endl;
+}
+
 int main() {
   //LaplaceSpherical K(5);
-  LaplaceCartesian<5> K;
+  //LaplaceCartesian<5> K;
   //YukawaCartesian K(10, 0.1);
   //StokesSpherical K(5);
+  fmmtl::DipoleFieldSpherical K(16);
 
-  single_level_test(K);
+  //single_level_test(K);
+  single_level_test_dipole(K);
   return 0;
 }

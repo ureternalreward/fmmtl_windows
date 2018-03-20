@@ -105,7 +105,7 @@ void S2T_Compressed<_Kernel_Ty_>::execute(
   Data* data = reinterpret_cast<Data*>(data_);
 
   // TODO: set tpb to ncrit
-  const unsigned num_tpb    = 256;
+  const unsigned num_tpb    = 512;
   const unsigned num_blocks = data->num_blocks;
 
 #if defined(FMMTL_DEBUG)
@@ -189,7 +189,7 @@ S2T_Compressed<_Kernel_Ty_>::execute(const _Kernel_Ty_& K,
   //thrust::device_vector<target_type> d_targets(t);
   //thrust::device_vector<result_type> d_results(r);
 
-  const unsigned num_tpb    = 256;
+  const unsigned num_tpb    = 512;
   const unsigned num_blocks = (t.size() + num_tpb - 1) / num_tpb;
 
 #if defined(FMMTL_DEBUG)

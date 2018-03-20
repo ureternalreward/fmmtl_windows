@@ -51,7 +51,7 @@ class BatchFar {
         for (auto si = source_boxes[tb.index()].begin(); si != s_end; ++si) {
           // A hacky adaption on the operator graph
           // TODO: Actually measure/autotune these
-          if (ExpansionTraits<typename Context::expansion_type>::has_M2L) {
+          if (ExpansionTraits<typename Context::expansion_type>::has_M2L) {  
             M2L::eval(c, *si, tb);
           } else if (ExpansionTraits<typename Context::expansion_type>::has_L2T) {
             S2L::eval(c, *si, tb);

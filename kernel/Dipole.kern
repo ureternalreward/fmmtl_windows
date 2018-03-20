@@ -8,32 +8,40 @@
 #include "fmmtl/Kernel.hpp"
 #include "fmmtl/numeric/Vec.hpp"
 
+
 struct DipoleKernel
   : public fmmtl::Kernel<DipoleKernel> {
   //size of the magnetic dipole particle
 
-  double m_h;
-  DipoleKernel(double _h) : m_h(_h) {}
+  //real type in the kernel, float for performance
+  //in expansion it must use double
+  using _K_real_ = float;
+  _K_real_ m_h;
+  DipoleKernel(_K_real_ _h = 0.05) : m_h(_h) {}
+  //kernel real type, possible different from expansion real type
+  
 
   typedef Vec<3, double>  source_type;
-  typedef Vec<3, double>  charge_type;
+  typedef Vec<3, _K_real_>  charge_type;
   typedef Vec<3, double>  target_type;
-  typedef Vec<3, double>  result_type;
+  typedef Vec<3, _K_real_>  result_type;
   //kernel_value_type:
   //rx, ry, rz, w_avr, w_dens
   //rx,ry,rz are normalized vector from source to target
   //w_avr is the average density from source to target as sphere
   //w_dens is the density at target
 
+
+
   struct kernel_value_type {
-    double rx;
-    double ry;
-    double rz;
-    double w_avr;
-    double w_dens;
+    _K_real_ rx;
+    _K_real_ ry;
+    _K_real_ rz;
+    _K_real_ w_avr;
+    _K_real_ w_dens;
 
     FMMTL_INLINE
-      kernel_value_type(double _rx, double _ry, double _rz, double _w_avr, double _w_dens) {
+      kernel_value_type(_K_real_ _rx, _K_real_ _ry, _K_real_ _rz, _K_real_ _w_avr, _K_real_ _w_dens) {
       rx = _rx;
       ry = _ry;
       rz = _rz;
@@ -42,39 +50,54 @@ struct DipoleKernel
     }
 
     FMMTL_INLINE
-      result_type operator*(const charge_type& c) const {
-      double temp_v1 = (rx*c[0] + ry*c[1] + rz*c[2])*(w_avr - w_dens);
-      double temp_v2 = w_avr *0.33333333333333333333333f;
+      result_type operator*(const charge_type& _c) const {
+      //return result_type{ 0 ,0,0 };
 
-      double out_hx = rx*temp_v1 - temp_v2*c[0];
-      double out_hy = ry*temp_v1 - temp_v2*c[1];
-      double out_hz = rz*temp_v1 - temp_v2*c[2];
+      _K_real_ c0{ _K_real_(_c[0]) };
+      _K_real_ c1{ _K_real_(_c[1]) };
+      _K_real_ c2{ _K_real_(_c[2]) };
+
+      _K_real_ temp_v1 = (rx*c0 + ry*c1 + rz*c2)*(w_avr - w_dens);
+      _K_real_ temp_v2 = w_avr *0.33333333333333333333333f;
+
+      _K_real_ out_hx = rx*temp_v1 - temp_v2*c0;
+      _K_real_ out_hy = ry*temp_v1 - temp_v2*c1;
+      _K_real_ out_hz = rz*temp_v1 - temp_v2*c2;
       return result_type{ out_hx ,out_hy,out_hz };
-
     }
   };
 
   template<typename _Ty>
   FMMTL_INLINE void get_weight(_Ty & w_avr, _Ty & w_dens, _Ty r, _Ty h) const {
+    const _Ty one_over_pi = _Ty(M_1_PI);
     _Ty q = r / h;
     _Ty q2 = q*q;
     _Ty q3 = q2*q;
-    _Ty coe = 1 / M_PI / (h*h*h);
-
-    if (q >= 2) {
-      w_avr = 3.f / (4 * M_PI * r*r*r);
+    _Ty coe = one_over_pi / (h*h*h);
+    /*_Ty q = r/h;
+    _Ty coe ;*/
+    
+    if (q >=2) {
+      w_avr = 3.f *one_over_pi/ (4 * r*r*r);
       w_dens = 0;
+      return;
     }
     if (q >= 1 && q < 2) {
-      w_avr = -(3.f * (q3*q3 / 6.f - (6.f * q3*q2) / 5.f + 3.f * q2*q2 - (8.f * q3) / 3.f + 1.f / 15)) / (4 * M_PI*r*r*r);
-      _Ty tmq = 2 - q;
+
+      w_avr = -(3.f * (q3*q3 / 6.f - (6.f * q3*q2) / 5.f + 3.f * q2*q2 - (8.f * q3) / 3.f + 1.f / 15)) *one_over_pi / (r*r*r)/4;
+      _Ty tmq = (2 - q);
       w_dens = coe*0.25*tmq*tmq*tmq;
+      /*_Ty tmqh = (2 - q) / h;
+      w_dens = 0.25 *one_over_pi *tmqh*tmqh*tmqh;*/
+      return;
     }
-    if (q < 1) {
-      w_avr = (15.f * q3 - 36.f * q2 + 40.f) / (40 * M_PI*h*h*h);
+    if ( q < 1) {
+      //w_avr = (15.f * q3 - 36.f * q2 + 40.f) / (40 * pi *h*h*h);
+      w_avr = (q*q*(15.f/ 40.f*q - 36.f/40.f) + 1)*coe ;
       _Ty tmq = 2 - q;
       _Ty omq = 1 - q;
       w_dens = coe*(0.25*tmq*tmq*tmq - omq*omq*omq);
+      return;
     }
   }
 
@@ -85,19 +108,57 @@ struct DipoleKernel
   FMMTL_INLINE
     kernel_value_type operator()(const target_type& t,
                                  const source_type& s) const {
-    Vec<3, double> rvec{
-      (double)t[0] - s[0],
-      (double)t[1] - s[1],
-      (double)t[2] - s[2] };            //   Vector from source to target
-    double r = norm_2(rvec);
-    double invr = 1 / r;
+
+    //return kernel_value_type(0.1, 0.1, 0.2, 1,1);
+
+    //Vec<3, _K_real_> rvec{
+    //  _K_real_(t[0]) - _K_real_(s[0]),
+    //  _K_real_(t[1]) - _K_real_(s[1]),
+    //  _K_real_(t[2]) - _K_real_(s[2])};//   Vector from source to target
+    _K_real_ rvec0 = _K_real_(t[0]) - _K_real_(s[0]);
+    _K_real_ rvec1 = _K_real_(t[1]) - _K_real_(s[1]);
+    _K_real_ rvec2 = _K_real_(t[2]) - _K_real_(s[2]);
+     /*_K_real_ rvec0 = (t[0]) - (s[0]);
+     _K_real_ rvec1 = (t[1]) - (s[1]);
+     _K_real_ rvec2 = (t[2]) - (s[2]);*/
+
+    _K_real_ r = sqrtf(rvec0*rvec0+rvec1*rvec1+rvec2*rvec2);
+    _K_real_ invr = r == 0 ? 1 : 1 / r;
 
     //rvec becomes normalized.
-    rvec *= invr;
-    double wdens;
-    double wavr;
-    get_weight(wavr, wdens, r, m_h);
-    return kernel_value_type(rvec[0], rvec[1], rvec[2], wavr, wdens);
+    rvec0 *= invr;
+    rvec1 *= invr;
+    rvec2 *= invr;
+
+    _K_real_ wdens=1 ;
+    _K_real_ wavr=1;
+
+    get_weight(wavr, wdens, r, _K_real_(m_h));
+    //expanded version
+    /*const _K_real_ h = _K_real_(m_h);
+    _K_real_ q = r / h;
+    _K_real_ q2 = q*q;
+    _K_real_ q3 = q2*q;
+    _K_real_ coe = 1 / M_PI / (h*h*h);
+
+    if (q >= 2) {
+      wavr = 3.f / (4 * M_PI * r*r*r);
+      wdens = 0;
+    }
+    if (q >= 1 && q < 2) {
+      wavr = -(3.f * (q3*q3 / 6.f - (6.f * q3*q2) / 5.f + 3.f * q2*q2 - (8.f * q3) / 3.f + 1.f / 15)) / (4 * M_PI*r*r*r);
+      _K_real_ tmq = 2 - q;
+      wdens = coe*0.25*tmq*tmq*tmq;
+    }
+    if (q < 1) {
+      wavr = (15.f * q3 - 36.f * q2 + 40.f) / (40 * M_PI*h*h*h);
+      _K_real_ tmq = 2 - q;
+      _K_real_ omq = 1 - q;
+      wdens = coe*(0.25*tmq*tmq*tmq - omq*omq*omq);
+    }*/
+    //end expanded version get_weight
+
+    return kernel_value_type(rvec0, rvec1, rvec2, wavr, wdens);
   }
 
   FMMTL_INLINE

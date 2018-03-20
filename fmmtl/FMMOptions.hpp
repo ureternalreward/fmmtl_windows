@@ -6,52 +6,104 @@
 #include <iostream>
 #include <fstream>
 #include <cmath>
-
 #include "fmmtl/config.hpp"
+
+///** Class to define compile-time and run-time FMM options */
+//class FMMOptions {
+//  struct DefaultMAC {
+//    double theta_sq_;
+//    DefaultMAC(double theta) : theta_sq_(theta * theta) {}
+//
+//    template <typename BOX>
+//    bool operator()(const BOX& b1, const BOX& b2) const {
+//      double r0_sq = norm_2_sq(b1.center() - b2.center());
+//      double r1_sq = b1.radius_sq();
+//      double r2_sq = b2.radius_sq();
+//      double r_sq = r1_sq + r2_sq + 2*std::sqrt(r1_sq*r2_sq);
+//      return theta_sq_ * r0_sq > r_sq;
+//    }
+//  };
+//
+// public:
+//  // Standard algorithm parameters
+//  unsigned ncrit;  // The maximum number of particles per box in the tree
+//  double theta;    // The aperture of the standard multipole acceptance criteria
+//
+//  // DEBUGGING FLAGS
+//  bool print_tree;
+//
+//  // OTHER
+//  //! Evaluation type
+//  enum EvalType {FMM, TREECODE};
+//  EvalType evaluator;
+//
+//  FMMOptions()
+//      : ncrit(128),
+//        theta(0.5),
+//        print_tree(false),
+//        evaluator(FMM) {
+//  };
+//
+//  // TODO: Generalize type/construction
+//  DefaultMAC MAC() const {
+//    return DefaultMAC(theta);
+//  }
+//};
 
 /** Class to define compile-time and run-time FMM options */
 class FMMOptions {
-  struct DefaultMAC {
+  struct FarfieldMAC {
     double theta_sq_;
-    DefaultMAC(double theta) : theta_sq_(theta * theta) {}
+    const double m_h;
+    const bool no_extra_condition;
+    FarfieldMAC(double theta, double _h, bool _no_extra_condition = 1) :
+      theta_sq_(theta * theta),
+      m_h(_h),
+      no_extra_condition(_no_extra_condition) {}
 
     template <typename BOX>
     bool operator()(const BOX& b1, const BOX& b2) const {
       double r0_sq = norm_2_sq(b1.center() - b2.center());
+      double r0 = std::sqrt(r0_sq);
       double r1_sq = b1.radius_sq();
+      double r1 = std::sqrt(r1_sq);
       double r2_sq = b2.radius_sq();
-      double r_sq = r1_sq + r2_sq + 2*std::sqrt(r1_sq*r2_sq);
-      return theta_sq_ * r0_sq > r_sq;
+      double r2 = std::sqrt(r2_sq);
+      double r_sq = r1_sq + r2_sq + 2 * std::sqrt(r1_sq*r2_sq);
+      bool extra_criterion = no_extra_condition || (r0 - r1 - r2 > 2 * m_h);
+      bool theta_criterion = theta_sq_ * r0_sq > r_sq;
+      return  theta_criterion && extra_criterion;
     }
   };
 
- public:
+public:
   // Standard algorithm parameters
   unsigned ncrit;  // The maximum number of particles per box in the tree
   double theta;    // The aperture of the standard multipole acceptance criteria
 
-  // DEBUGGING FLAGS
+                   // DEBUGGING FLAGS
   bool print_tree;
-
+  double m_h;
+  bool extra_condition;
   // OTHER
   //! Evaluation type
-  enum EvalType {FMM, TREECODE};
+  enum EvalType { FMM, TREECODE };
   EvalType evaluator;
 
-  FMMOptions()
-      : ncrit(128),
-        theta(0.5),
-        print_tree(false),
-        evaluator(FMM) {
+  FMMOptions(double _h = 0.1, bool _extra_condition = 0)
+    : ncrit(128),
+    theta(0.5),
+    print_tree(false),
+    evaluator(FMM),
+    m_h(_h),
+    extra_condition(_extra_condition) {
   };
 
   // TODO: Generalize type/construction
-  DefaultMAC MAC() const {
-    return DefaultMAC(theta);
+  FarfieldMAC MAC() const {
+    return FarfieldMAC(theta, m_h, !extra_condition);
   }
 };
-
-
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>

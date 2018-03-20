@@ -20,8 +20,16 @@ struct UpwardPass {
 		for (int l = tree.levels()-1; l >= 0; --l) {
 			// For all boxes at this level
 			auto b_end = tree.box_end(l);
+
+      //use openmp to accelerate
+      std::vector<decltype(tree.box_begin(l))> level_box_list;
+      level_box_list.reserve(tree.boxes(l));
       for (auto bit = tree.box_begin(l); bit != b_end; ++bit) {
-        auto box = *bit;
+        level_box_list.push_back(bit);
+      }
+#pragma omp parallel for
+      for (int i = 0; i < level_box_list.size();i++) {
+        auto box = *level_box_list[i];
         eval(box);
 			}
 		}

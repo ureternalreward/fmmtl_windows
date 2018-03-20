@@ -3,6 +3,8 @@
 #include "fmmtl/dispatch/Dispatchers.hpp"
 #include "fmmtl/Direct.hpp"
 
+
+#include "DipoleFieldSpherical.hpp"
 #include "LaplaceSpherical.hpp"
 //#include "LaplaceCartesian.hpp"
 #include "YukawaCartesian.hpp"
@@ -23,12 +25,15 @@ void two_level_test(const Expansion& K) {
   typedef typename expansion_type::local_type local_type;
 
   // init source
-  std::vector<source_type> s(1);
+  double epsl = 1e-8;
+  double sm = 1.f / 4.f / 3.1415926;
+  std::vector<source_type> s(2);
   s[0] = source_type(0, 0, 0);
-
+  s[1] = source_type(epsl, epsl, epsl);
   // init charge
-  std::vector<charge_type> c(1);
-  c[0] = charge_type(1);
+  std::vector<charge_type> c(2);
+  c[0] = charge_type(sm / epsl);
+  c[1] = charge_type(-sm / epsl);
 
   // init target
   std::vector<target_type> t(1);
@@ -40,6 +45,86 @@ void two_level_test(const Expansion& K) {
   result_type rm2t2 = result_type(0);
   result_type rm2t1 = result_type(0);
   result_type rfmm  = result_type(0);
+
+  // test direct
+  fmmtl::direct(K, s, c, t, rexact);
+
+  // setup initial multipole expansion
+  multipole_type M;
+  point_type M_center(0.05, 0.05, 0.05);
+  point_type M_extent(0.1, 0.1, 0.1);
+  INITM::apply(K, M, M_extent, 2u);
+  S2M::apply(K, s[0], c[0], M_center, M);
+  S2M::apply(K, s[1], c[1], M_center, M);
+
+  // perform M2M
+  multipole_type M2;
+  point_type M2_center(0.1, 0.1, 0.1);
+  point_type M2_extent(0.2, 0.2, 0.2);
+  INITM::apply(K, M2, M2_extent, 1u);
+  M2M::apply(K, M, M2, M2_center - M_center);
+
+  // test M2T
+  M2T::apply(K, M, M_center, t[0], rm2t1);
+  M2T::apply(K, M2, M2_center, t[0], rm2t2);
+
+  // test M2L
+  local_type L2;
+  point_type L2_center(0.9, 0.9, 0.9);
+  point_type L2_extent(0.2, 0.2, 0.2);
+  INITL::apply(K, L2, L2_center, 1u);
+  M2L::apply(K, M2, L2, L2_center - M2_center);
+
+  // test L2L
+  local_type L;
+  point_type L_center(0.95, 0.95, 0.95);
+  point_type L_extent(0.1, 0.1, 0.1);
+  INITL::apply(K, L, L_extent, 2u);
+  L2L::apply(K, L2, L, L_center - L2_center);
+
+  // test L2T
+  L2T::apply(K, L2, L2_center, t[0], rfmm);
+
+  // check errors
+  std::cout << "rexact = " << rexact[0] << std::endl;
+  std::cout << "rm2t1 = " << rm2t1 << "\n    "
+            << "[" << (rm2t1 - rexact[0]) << "]" << std::endl;
+  std::cout << "rm2t2 = " << rm2t2 << "\n    "
+            << "[" << (rm2t2 - rexact[0]) << "]" << std::endl;
+  std::cout << "rfmm = " << rfmm << "\n    "
+            << "[" << (rfmm - rexact[0]) << "]" << std::endl;
+}
+
+
+template <typename Expansion>
+void two_level_test_dipole(const Expansion& K) {
+  typedef Expansion expansion_type;
+  typedef typename expansion_type::source_type source_type;
+  typedef typename expansion_type::target_type target_type;
+  typedef typename expansion_type::charge_type charge_type;
+  typedef typename expansion_type::result_type result_type;
+  typedef typename expansion_type::point_type point_type;
+  typedef typename expansion_type::multipole_type multipole_type;
+  typedef typename expansion_type::local_type local_type;
+
+  // init source
+  std::vector<source_type> s(1);
+  s[0] = source_type(0, 0, 0);
+
+  // init charge
+  std::vector<charge_type> c(1);
+  c[0] = charge_type(1000,1000,1000);
+
+  // init target
+  std::vector<target_type> t(1);
+  t[0] = target_type(0.98, 0.98, 0.98);
+
+  // init results vectors for exact, FMM
+  std::vector<result_type> rexact(1);
+  rexact[0] = result_type(0);
+  result_type rm2t2 = result_type(0);
+  result_type rm2t1 = result_type(0);
+  result_type rfmm = result_type(0);
 
   // test direct
   fmmtl::direct(K, s, c, t, rexact);
@@ -82,19 +167,21 @@ void two_level_test(const Expansion& K) {
   // check errors
   std::cout << "rexact = " << rexact[0] << std::endl;
   std::cout << "rm2t1 = " << rm2t1 << "\n    "
-            << "[" << (rm2t1 - rexact[0]) << "]" << std::endl;
+    << "[" << (rm2t1 - rexact[0]) << "]" << std::endl;
   std::cout << "rm2t2 = " << rm2t2 << "\n    "
-            << "[" << (rm2t2 - rexact[0]) << "]" << std::endl;
+    << "[" << (rm2t2 - rexact[0]) << "]" << std::endl;
   std::cout << "rfmm = " << rfmm << "\n    "
-            << "[" << (rfmm - rexact[0]) << "]" << std::endl;
+    << "[" << (rfmm - rexact[0]) << "]" << std::endl;
 }
 
-
 int main() {
-  LaplaceSpherical K(5);
+
+  //fmmtl::LaplaceSpherical K(5);
   //YukawaCartesian K(10, 0.1);
   //StokesSpherical K(5);
+  fmmtl:: DipoleFieldSpherical K{ 16 };
 
-  two_level_test(K);
+  two_level_test_dipole(K);
+  //two_level_test(K);
   return 0;
 }
